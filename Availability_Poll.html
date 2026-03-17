@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 
 <html lang="en">
@@ -340,7 +339,7 @@ body { background: white; }
   <p>Your availability has been recorded. The organizer will confirm the final date once all responses are collected.</p>
   <div class="summary-box" id="summaryBox"></div>
 </div>
-
+```
 
   </div><!-- /form-card -->
 
@@ -372,7 +371,7 @@ function pick(opt, choice) {
   btns[map[choice]].classList.add('active-' + choice);
 }
 
-function submitForm() {
+async function submitForm() {
   const name = document.getElementById('nameInput').value.trim();
   const errEl = document.getElementById('errorMsg');
 
@@ -390,26 +389,51 @@ function submitForm() {
   }
   errEl.style.display = 'none';
 
-  // Update tally
-  Object.keys(selections).forEach(opt => { tally[opt][selections[opt]]++; });
-
-  // Build summary
   const icons = { yes:'✅ Yes', maybe:'🔄 Maybe', no:'❌ No' };
   const notes = document.getElementById('notesInput').value.trim();
-  let summaryHtml = `<strong>Submitted for: ${name}</strong><br/><br/>`;
-  Object.keys(selections).forEach(opt => {
-    summaryHtml += `<strong>Option ${opt}</strong> (${optionLabels[opt]}): ${icons[selections[opt]]}<br/>`;
-  });
-  if (notes) summaryHtml += `<br/><strong>Notes:</strong> ${notes}`;
 
-  document.getElementById('summaryBox').innerHTML = summaryHtml;
+  // Send to Formspree
+  const submitBtn = document.querySelector('.submit-btn');
+  submitBtn.textContent = 'Sending...';
+  submitBtn.disabled = true;
 
-  // Show thank you
-  document.querySelector('.form-card-body').style.display = 'none';
-  document.getElementById('thankYou').style.display = 'block';
+  try {
+    const response = await fetch('https://formspree.io/f/xwvrwvvw', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        name: name,
+        'Option A (Tue Mar 24)': icons[selections.A],
+        'Option B (Wed Mar 25)': icons[selections.B],
+        'Option C (Thu Mar 26)': icons[selections.C],
+        'Option D (Tue Mar 31)': icons[selections.D],
+        notes: notes || 'None',
+      })
+    });
 
-  // Show tally
-  renderTally();
+    if (!response.ok) throw new Error('Submission failed');
+
+    // Update tally
+    Object.keys(selections).forEach(opt => { tally[opt][selections[opt]]++; });
+
+    // Build summary
+    let summaryHtml = `<strong>Submitted for: ${name}</strong><br/><br/>`;
+    Object.keys(selections).forEach(opt => {
+      summaryHtml += `<strong>Option ${opt}</strong> (${optionLabels[opt]}): ${icons[selections[opt]]}<br/>`;
+    });
+    if (notes) summaryHtml += `<br/><strong>Notes:</strong> ${notes}`;
+
+    document.getElementById('summaryBox').innerHTML = summaryHtml;
+    document.querySelector('.form-card-body').style.display = 'none';
+    document.getElementById('thankYou').style.display = 'block';
+    renderTally();
+
+  } catch (error) {
+    submitBtn.textContent = 'Submit My Availability →';
+    submitBtn.disabled = false;
+    errEl.textContent = 'Something went wrong. Please try again.';
+    errEl.style.display = 'block';
+  }
 }
 
 function renderTally() {
